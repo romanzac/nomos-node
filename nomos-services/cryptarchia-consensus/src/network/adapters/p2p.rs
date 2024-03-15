@@ -7,8 +7,12 @@ use tokio_stream::{wrappers::BroadcastStream, StreamExt};
 // internal
 use crate::network::{messages::NetworkMessage, BoxedStream, NetworkAdapter};
 use nomos_core::{block::Block, wire};
+#[cfg(feature = "libp2p")]
+use nomos_network::backends::libp2p::Libp2p as Backend;
+#[cfg(feature = "mixnet")]
+use nomos_network::backends::mixnet::MixnetNetworkBackend as Backend;
 use nomos_network::{
-    backends::libp2p::{Command, Event, EventKind, Libp2p},
+    backends::libp2p::{Command, Event, EventKind},
     NetworkMsg, NetworkService,
 };
 use overwatch_rs::services::{relay::OutboundRelay, ServiceData};
@@ -18,21 +22,21 @@ const BUFFER_SIZE: usize = 64;
 type Relay<T> = OutboundRelay<<NetworkService<T> as ServiceData>::Message>;
 
 #[derive(Clone)]
-pub struct LibP2pAdapter<Tx, BlobCert>
+pub struct P2pAdapter<Tx, BlobCert>
 where
     Tx: Clone + Eq + Hash,
     BlobCert: Clone + Eq + Hash,
 {
-    network_relay: OutboundRelay<<NetworkService<Libp2p> as ServiceData>::Message>,
+    network_relay: OutboundRelay<<NetworkService<Backend> as ServiceData>::Message>,
     blocks: tokio::sync::broadcast::Sender<Block<Tx, BlobCert>>,
 }
 
-impl<Tx, BlobCert> LibP2pAdapter<Tx, BlobCert>
+impl<Tx, BlobCert> P2pAdapter<Tx, BlobCert>
 where
     Tx: Clone + Eq + Hash + Serialize,
     BlobCert: Clone + Eq + Hash + Serialize,
 {
-    async fn subscribe(relay: &Relay<Libp2p>, topic: &str) {
+    async fn subscribe(relay: &Relay<Backend>, topic: &str) {
         if let Err((e, _)) = relay
             .send(NetworkMsg::Process(Command::Subscribe(topic.into())))
             .await
@@ -43,16 +47,16 @@ where
 }
 
 #[async_trait::async_trait]
-impl<Tx, BlobCert> NetworkAdapter for LibP2pAdapter<Tx, BlobCert>
+impl<Tx, BlobCert> NetworkAdapter for P2pAdapter<Tx, BlobCert>
 where
     Tx: Serialize + DeserializeOwned + Clone + Eq + Hash + Send + 'static,
     BlobCert: Serialize + DeserializeOwned + Clone + Eq + Hash + Send + 'static,
 {
-    type Backend = Libp2p;
+    type Backend = Backend;
     type Tx = Tx;
     type BlobCertificate = BlobCert;
 
-    async fn new(network_relay: Relay<Libp2p>) -> Self {
+    async fn new(network_relay: Relay<Self::Backend>) -> Self {
         let relay = network_relay.clone();
         Self::subscribe(&relay, TOPIC).await;
         let blocks = tokio::sync::broadcast::Sender::new(BUFFER_SIZE);
