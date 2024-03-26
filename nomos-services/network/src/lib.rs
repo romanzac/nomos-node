@@ -1,4 +1,6 @@
 pub mod backends;
+#[cfg(feature = "metrics")]
+pub mod metrics;
 // std
 use std::fmt::{self, Debug};
 
