@@ -2,7 +2,7 @@ on:
   pull_request:
   push:
     branches:
-      - master
+      - chore-cryptarchia-unit-tests-update
 
 name: Codecov
 
@@ -42,7 +42,8 @@ jobs:
         with:
           name: integration-test-artifacts
           path: tests/.tmp*
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4.0.1
         with:
           directory: /tmp/cov/
           name: nomos-node-codecov
+          token: ${{ secrets.CODECOV_TOKEN }}
