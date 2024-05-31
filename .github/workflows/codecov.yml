@@ -47,3 +47,4 @@ jobs:
           directory: /tmp/cov/
           name: nomos-node-codecov
           token: ${{ secrets.CODECOV_TOKEN }}
+
