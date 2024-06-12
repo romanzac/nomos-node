@@ -21,7 +21,8 @@ pub struct Branches<Id> {
     tips: HashSet<Id>,
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct Branch<Id> {
     id: Id,
     parent: Id,
@@ -131,6 +132,7 @@ where
 }
 
 #[derive(Debug, Clone, Error)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum Error<Id> {
     #[error("Parent block: {0:?} is not know to this node")]
     ParentMissing(Id),
@@ -220,7 +222,7 @@ where
 
 #[cfg(test)]
 pub mod tests {
-    use super::{Cryptarchia, Slot};
+    use super::{Cryptarchia, Error, Slot};
     use crate::Config;
     use std::hash::{DefaultHasher, Hash, Hasher};
 
@@ -341,24 +343,37 @@ pub mod tests {
 
         assert_eq!(branch1, branch2);
         assert_eq!(
-            branch1.expect("id is set").id(),
-            branch2.expect("id is set").id()
+            branch1.expect("id is not set").id(),
+            branch2.expect("id is not set").id()
         );
         assert_eq!(
-            branch1.expect("parent is set").parent(),
-            branch2.expect("parent is set").parent()
+            branch1.expect("parent is not set").parent(),
+            branch2.expect("parent is not set").parent()
         );
         assert_eq!(
-            branch1.expect("slot is set").slot(),
-            branch2.expect("slot is set").slot()
+            branch1.expect("slot is not set").slot(),
+            branch2.expect("slot is not set").slot()
         );
         assert_eq!(
-            branch1.expect("length is set").length(),
-            branch2.expect("length is set").length()
+            branch1.expect("length is not set").length(),
+            branch2.expect("length is not set").length()
         );
 
         let slot = Slot::genesis();
 
         assert_eq!(slot + 10u64, Slot::from(10));
+
+        let strange_engine = Cryptarchia::from_genesis([100; 32], config());
+        let not_a_parent = strange_engine.genesis();
+
+        _ = match branches
+            .get(&not_a_parent)
+            .ok_or(Error::ParentMissing(not_a_parent))
+        {
+            Ok(_) => panic!("Parent should not be related to this branch"),
+            Err(e) => {
+                assert_ne!(e, Error::ParentMissing(parent));
+            }
+        };
     }
 }
